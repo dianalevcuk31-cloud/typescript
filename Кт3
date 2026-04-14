@@ -1,0 +1,149 @@
+type Currency = "RUB";
+type Money = { amount: number; currency: Currency };
+type InvoiceStatus = "draft" | "issued" | "paid" | "void";
+type CustomerType = "individual" | "company"; // Новый тип для клиентов
+type PaymentResult =
+    | { ok: true; paidAt: string }
+    | { ok: false; reason: "declined" | "network_error" };
+
+interface PaymentMethod {
+    pay(invoice: Invoice, amount: Money): PaymentResult;
+}
+
+interface Billable {
+    title: string;
+    total(): Money;
+}
+
+abstract class InvoiceLine implements Billable {
+    public readonly title: string;
+
+    protected constructor(title: string, protected readonly qty: number) {
+        this.title = title;
+    }
+
+    protected abstract unitPrice(): Money;
+
+    public total(): Money {
+        const price = this.unitPrice();
+        return { amount: price.amount * this.qty, currency: price.currency };
+    }
+}
+
+class LaborLine extends InvoiceLine {
+    constructor(title: string, qtyHours: number, private readonly rubPerHour: number) {
+        super(title, qtyHours);
+    }
+
+    protected unitPrice(): Money {
+        return { amount: this.rubPerHour, currency: "RUB" };
+    }
+}
+
+class Invoice {
+    private status: InvoiceStatus = "draft";
+    public readonly customerType: CustomerType; // Новое поле для хранения типа клиента
+
+    constructor(public readonly id: string, private readonly Lines: Billable[], customerType: CustomerType) {
+        this.customerType = customerType;
+    }
+
+    public issue(): void {
+        if (this.status !== "draft") {
+            throw new Error("Можно выставлять только черновой счет");
+        }
+        this.status = "issued";
+    }
+
+    public markPaid(): void {
+        if (this.status !== "issued") {
+            throw new Error("Можно помечать оплаченным только выданный счет");
+        }
+        this.status = "paid";
+    }
+
+    public getStatus(): InvoiceStatus {
+        return this.status;
+    }
+
+    public getCustomerType(): CustomerType {
+        return this.customerType;
+    }
+
+    public getLines(): readonly Billable[] {
+        return this.Lines;
+    }
+}
+
+class CashPayment implements PaymentMethod {
+    pay(invoice: Invoice, amount: Money): PaymentResult {
+        if (invoice.getStatus() !== "issued") {
+            return { ok: false, reason: "declined" };
+        }
+        return { ok: true, paidAt: new Date().toISOString() };
+    }
+}
+
+// Новая реализация банковского платежа, работающего только для юридических лиц
+class BankTransferPayment implements PaymentMethod {
+    pay(invoice: Invoice, amount: Money): PaymentResult {
+        if (invoice.getStatus() !== "issued") {
+            return { ok: false, reason: "declined" };
+        }
+
+        // Проверка, является ли плательщик юридическом лицом
+        if (invoice.getCustomerType() !== "company") {
+            return { ok: false, reason: "declined" }; // Отказываем физическим лицам
+        }
+        
+        return { ok: true, paidAt: new Date().toISOString() };
+    }
+}
+
+class InvoiceCalculator {
+    public sum(lines: readonly Billable[]): Money {
+        return lines.reduce(
+            (acc, line) => ({ amount: acc.amount + line.total().amount, currency: "RUB" }),
+            { amount: 0, currency: "RUB" },
+        );
+    }
+}
+
+function demo(customerType: CustomerType): Invoice {
+    const lines = [
+        new LaborLine("Работа №1", 2, 100),
+        new LaborLine("Работа №2", 4, 200),
+        new LaborLine("Работа №3", 10, 443),
+        new LaborLine("Работа №4", 2, 1500),
+    ];
+    const invoice = new Invoice("INV-2026-0001", lines, customerType);
+    return invoice;
+}
+
+function getResult(invoice: Invoice) {
+    invoice.issue(); // Выставляем инвойс
+
+    const calculator = new InvoiceCalculator();
+    const total: Money = calculator.sum(invoice.getLines());
+
+    let paymentMethod: PaymentMethod;
+
+    if (invoice.getCustomerType() === "company") {
+        paymentMethod = new BankTransferPayment(); // Если юридическое лицо, платим банковским переводом
+    } else {
+ paymentMethod = new CashPayment(); // Иначе оплачиваем наличными
+    }
+
+const result = paymentMethod.pay(invoice, total);
+
+    console.log(total);
+    console.log(invoice);
+    console.log(result);
+}
+
+// Демонстрационный запуск
+const invoiceForCompany = demo("company"); // Инвойс для юридического лица
+getResult(invoiceForCompany);
+
+const invoiceForIndividual = demo("individual"); // Инвойс для физического лица
+getResult(invoiceForIndividual);
