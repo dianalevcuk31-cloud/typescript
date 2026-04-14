@@ -1,0 +1,30 @@
+class StudentClass {
+    constructor(public name: string, public age: number) {}
+}
+
+class School {
+    private students: StudentClass[] = [];
+
+    addStudent(student: StudentClass): void {
+        this.students.push(student);
+    }
+
+    // Для демонстрации списка учеников
+    listStudents(): void {
+        console.log("Список студентов:");
+        for(const student of this.students){
+            console.log(Имя: ${student.name}, Возраст: ${student.age});
+        }
+    }
+}
+
+// Создаем школу
+const school = new School();
+
+// Добавляем трех студентов
+school.addStudent(new StudentClass('Артём', 13));
+school.addStudent(new StudentClass('Настя', 15));
+school.addStudent(new StudentClass('Даша', 14));
+
+// Проверяем список студентов
+school.listStudents();
