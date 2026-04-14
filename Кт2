@@ -1,0 +1,85 @@
+abstract class BankAccount {
+    protected balance: number = 0;
+
+    constructor(balance: number) {
+        this.balance = balance;
+    }
+
+    // Публичный геттер для получения баланса
+    public getBalance(): number {
+        return this.balance;
+    }
+
+    // Публичный сеттер для установки нового значения баланса
+    public setBalance(newBalance: number): void {
+        this.balance = newBalance;
+    }
+
+    // Абстрактный метод комиссии за месяц
+    abstract monthlyFee(): number;
+}
+
+// Класс чекового счета с фиксированной комиссией 10 рублей
+class CheckingAccount extends BankAccount {
+    override monthlyFee(): number {
+        return 10;
+    }
+}
+
+// Класс накопительного счёта с процентной ставкой (%)
+class SavingsAccount extends BankAccount {
+    private interestRate: number;
+
+    constructor(balance: number, interestRate: number) {
+        super(balance);
+        this.interestRate = interestRate / 100; // Процентная ставка преобразуется в десятичную форму
+    }
+
+    override monthlyFee(): number {
+        const fee = this.getBalance() * this.interestRate;
+        return Math.round(fee); // Округляем комиссию до целого числа
+    }
+}
+
+// Банк с массивом счетов и методом перевода денег между ними
+class Bank {
+    static accounts: BankAccount[] = [];
+
+    static addAccount(account: BankAccount): void {
+        this.accounts.push(account);
+    }
+
+
+    static transfer(from: BankAccount, to: BankAccount, amount: number): boolean {
+        if (from.getBalance() >= amount && amount > 0) {
+            // Используем геттер/сеттер для безопасного изменения состояний
+            from.setBalance(from.getBalance() - amount);
+            to.setBalance(to.getBalance() + amount);
+            console.log(Успешно перевели ${amount} рублей.);
+            return true;
+        } else {
+            console.error('Недостаточно средств.');
+            return false;
+        }
+    }
+}
+
+// Тестируем классы
+
+const checkingAcc = new CheckingAccount(1000);
+const savingsAcc = new SavingsAccount(2000, 5); // Ставка 5%
+
+Bank.addAccount(checkingAcc);
+Bank.addAccount(savingsAcc);
+
+console.log("Баланс чекового счёта:", checkingAcc.getBalance()); // Баланс 1000 руб.
+console.log("Комиссия за месяц:", checkingAcc.monthlyFee());      // Комиссия 10 руб.
+
+console.log("Баланс накопительного счёта:", savingsAcc.getBalance()); // Баланс 2000 руб.
+console.log("Комиссия за месяц:", savingsAcc.monthlyFee());           // Комиссия примерно 100 руб., округлено до целых
+
+// Перевод средств
+Bank.transfer(checkingAcc, savingsAcc, 500);
+
+console.log("Новый баланс чекового счёта:", checkingAcc.getBalance());
+console.log("Новый баланс накопительного счёта:", savingsAcc.getBalance());
